@@ -1,0 +1,57 @@
+INFO:     Started server process [27094]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55094 - "GET /mcp/sse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55110 - "POST /mcp/messages?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:55110 - "POST /mcp/messages/?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55110 - "POST /mcp/messages?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:55110 - "POST /mcp/messages/?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55110 - "POST /mcp/messages?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:55110 - "POST /mcp/messages/?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55110 - "POST /mcp/messages?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:55110 - "POST /mcp/messages/?session_id=bc1267ccaf214ca9a8c72818553331da HTTP/1.1" 202 Accepted
+INFO:httpx:HTTP Request: GET https://ariaengine-production.up.railway.app/api/health "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:59962 - "GET /mcp/sse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59970 - "POST /mcp/messages?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:59970 - "POST /mcp/messages/?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59970 - "POST /mcp/messages?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:59970 - "POST /mcp/messages/?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59970 - "POST /mcp/messages?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:59970 - "POST /mcp/messages/?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 202 Accepted
+INFO:httpx:HTTP Request: POST https://ariaengine-production.up.railway.app/api/client/v1/recall "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:41806 - "POST /mcp/messages?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:41806 - "POST /mcp/messages/?session_id=e3a174e6cad34c30a286cbab36a0cb3b HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:60104 - "GET /mcp/sse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60110 - "POST /mcp/messages?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60110 - "POST /mcp/messages/?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:60110 - "POST /mcp/messages?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60110 - "POST /mcp/messages/?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:60110 - "POST /mcp/messages?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60110 - "POST /mcp/messages/?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 202 Accepted
+INFO:httpx:HTTP Request: POST https://ariaengine-production.up.railway.app/api/client/v1/recall "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:60110 - "POST /mcp/messages?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60110 - "POST /mcp/messages/?session_id=465bd89acb9049a1b86a675855d4c27d HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59530 - "GET /mcp/sse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59544 - "POST /mcp/messages?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:59544 - "POST /mcp/messages/?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59544 - "POST /mcp/messages?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:59544 - "POST /mcp/messages/?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59544 - "POST /mcp/messages?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:59544 - "POST /mcp/messages/?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 202 Accepted
+INFO:httpx:HTTP Request: POST https://ariaengine-production.up.railway.app/api/client/v1/intake "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:32794 - "POST /mcp/messages?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:32794 - "POST /mcp/messages/?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:32800 - "POST /mcp/messages?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:32800 - "POST /mcp/messages/?session_id=c895d9e0881043759bd19b4cd315411f HTTP/1.1" 202 Accepted
+INFO:httpx:HTTP Request: POST https://ariaengine-production.up.railway.app/api/client/v1/recall "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:40988 - "GET /mcp/sse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41004 - "POST /mcp/messages?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:41004 - "POST /mcp/messages/?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:41004 - "POST /mcp/messages?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:41004 - "POST /mcp/messages/?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:41004 - "POST /mcp/messages?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:41004 - "POST /mcp/messages/?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 202 Accepted
+INFO:httpx:HTTP Request: POST https://ariaengine-production.up.railway.app/api/client/v1/capabilities/invoke "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:48970 - "POST /mcp/messages?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:48970 - "POST /mcp/messages/?session_id=8c8e5ba4b5e8427b97baa71f8ca60436 HTTP/1.1" 202 Accepted

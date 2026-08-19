@@ -7,8 +7,8 @@ from mcp.server import MCPServer
 from mcp.server.sse import SseServerTransport
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from .config import settings
-from .client import ARIAEngineClient
+from config import settings
+from client import ARIAEngineClient
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -113,20 +113,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 app.add_middleware(APIKeyMiddleware)
 
 # --- MCP Transport Setup ---
-sse = SseServerTransport("/messages")
-
-@app.get("/sse")
-async def handle_sse(request: Request):
-    async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
-        await mcp.run(
-            read_stream,
-            write_stream,
-            mcp.create_initialization_options()
-        )
-
-@app.post("/messages")
-async def handle_messages(request: Request):
-    await sse.handle_post_message(request.scope, request.receive, request._send)
+mcp_sse_app = mcp.sse_app(sse_path="/sse", message_path="/messages")
+app.mount("/mcp", mcp_sse_app)
 
 @app.get("/health")
 async def health():
@@ -138,4 +126,6 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    import os
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)
