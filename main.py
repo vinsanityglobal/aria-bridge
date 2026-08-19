@@ -97,7 +97,7 @@ app = FastAPI(title=settings.app_name, version=settings.app_version)
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Skip auth for root health check
-        if request.url.path in ["/", "/health"]:
+        if request.url.path in ["/", "/health", "/mcp/sse", "/mcp/messages"]:
             return await call_next(request)
             
         auth_header = request.headers.get("Authorization")
@@ -113,8 +113,21 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 app.add_middleware(APIKeyMiddleware)
 
 # --- MCP Transport Setup ---
-mcp_sse_app = mcp.sse_app(sse_path="/sse", message_path="/messages")
-app.mount("/mcp", mcp_sse_app)
+from mcp.server.sse import SseServerTransport
+sse = SseServerTransport("/mcp/messages")
+
+@app.get("/mcp/sse")
+async def handle_sse(request: Request):
+    async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
+        await mcp.run(
+            read_stream,
+            write_stream,
+            mcp.create_initialization_options()
+        )
+
+@app.post("/mcp/messages")
+async def handle_messages(request: Request):
+    await sse.handle_post_message(request.scope, request.receive, request._send)
 
 @app.get("/health")
 async def health():
