@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+httpx
+mcp[cli]
+pydantic-settings
+sse-starlette
