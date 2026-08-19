@@ -1,8 +1,9 @@
 import logging
-from fastapi import FastAPI
+import os
 from mcp.server import MCPServer
 from config import settings
 from client import ARIAEngineClient
+from starlette.responses import JSONResponse
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -56,24 +57,20 @@ async def aria_run_gravity(thesis: str, publication: str = "TheSciFiScene", cont
     )
     return json.dumps(result, indent=2)
 
-# --- FastAPI App ---
-app = FastAPI(title=settings.app_name, version=settings.app_version)
+# --- Create the Starlette App ---
+# We use sse_app() to get a fully configured MCP SSE server
+app = mcp.sse_app()
 
-# --- MCP Transport Setup ---
-# Use the built-in sse_app helper
-mcp_sse_app = mcp.sse_app()
-app.mount("/mcp", mcp_sse_app)
+# --- Add Custom Routes ---
+@app.route("/health")
+async def health(request):
+    return JSONResponse({"status": "ok", "service": "aria-bridge"})
 
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "aria-bridge"}
-
-@app.get("/")
-async def root():
-    return {"message": "ARIA Bridge is operational. Use /mcp/sse for MCP connection."}
+@app.route("/")
+async def root(request):
+    return JSONResponse({"message": "ARIA Bridge is operational. Use /sse for MCP connection."})
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.getenv("PORT", 8001))
     uvicorn.run(app, host="0.0.0.0", port=port)
