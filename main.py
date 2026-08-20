@@ -72,7 +72,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
             
         # Allow the initial SSE GET connection
-        if request.url.path == "/sse" and request.method == "GET":
+        if "/sse" in request.url.path and request.method == "GET":
             return await call_next(request)
             
         # Auth required for everything else (including POST /messages)
