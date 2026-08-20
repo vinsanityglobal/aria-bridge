@@ -96,10 +96,10 @@ security_settings = TransportSecuritySettings(
     allowed_origins=["*"]
 )
 mcp_app = mcp.streamable_http_app(
-    streamable_http_path="/mcp",
+    streamable_http_path="/",
     transport_security=security_settings
 )
-app.mount("/", mcp_app)
+app.mount("/mcp", mcp_app)
 
 @app.get("/health")
 async def health():
