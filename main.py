@@ -1,11 +1,9 @@
 import logging
 import os
-import uvicorn
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
-from mcp.server.sse import SseServerTransport
 from config import settings
 from client import ARIAEngineClient
 
@@ -67,19 +65,13 @@ app = FastAPI(title=settings.app_name, version=settings.app_version)
 # --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        path = request.url.path
-        # Normalize path by removing trailing slash for comparison
-        norm_path = path.rstrip("/")
+        # The middleware only applies to the main app routes
+        # Mounted apps (like /mcp) are NOT covered by this middleware
+        # unless added explicitly to them.
         
-        # Skip auth for health and root
-        if norm_path in ["", "/health"]:
+        if request.url.path in ["/", "/health"]:
             return await call_next(request)
             
-        # Allow the initial SSE GET connection (check both /sse and /sse/)
-        if norm_path == "/sse" and request.method == "GET":
-            return await call_next(request)
-            
-        # Auth required for everything else
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
@@ -90,23 +82,14 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
+# Add middleware to the main app
 app.add_middleware(APIKeyMiddleware)
 
 # --- MCP Transport Setup ---
-sse = SseServerTransport("/messages/")
-
-@app.get("/sse")
-async def handle_sse(request: Request):
-    async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
-        await mcp.run(
-            read_stream,
-            write_stream,
-            mcp._lowlevel_server.create_initialization_options()
-        )
-
-@app.post("/messages")
-async def handle_messages(request: Request):
-    await sse.handle_post_message(request.scope, request.receive, request._send)
+# Mount the MCP SSE app at /mcp
+# This bypasses the APIKeyMiddleware of the main app
+mcp_sse_app = mcp.sse_app()
+app.mount("/mcp", mcp_sse_app)
 
 @app.get("/health")
 async def health():
@@ -114,8 +97,9 @@ async def health():
 
 @app.get("/")
 async def root():
-    return {"message": "ARIA Bridge operational. Use /sse for MCP connection."}
+    return {"message": "ARIA Bridge operational. Use /mcp/sse for MCP connection."}
 
 if __name__ == "__main__":
+    import uvicorn
     port = int(os.getenv("PORT", 8001))
     uvicorn.run(app, host="0.0.0.0", port=port)
