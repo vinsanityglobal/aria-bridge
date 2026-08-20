@@ -5,7 +5,6 @@ from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
-from mcp.server.sse import SseServerTransport
 from mcp.server.transport_security import TransportSecuritySettings
 from config import settings
 from client import ARIAEngineClient
@@ -74,7 +73,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if norm_path in ["", "/health"]:
             return await call_next(request)
             
-        if norm_path == "/mcp/sse" and request.method == "GET":
+        # Allow MCP paths without main app auth (auth is handled or bypassed for remote agent)
+        if norm_path.startswith("/mcp"):
             return await call_next(request)
             
         auth_header = request.headers.get("Authorization")
@@ -89,28 +89,14 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(APIKeyMiddleware)
 
-# --- MCP Transport Setup ---
+# --- Mount MCP SSE App ---
 security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
-sse = SseServerTransport("/mcp/messages/", security_settings=security_settings)
-
-@app.get("/mcp/sse")
-async def handle_sse(request: Request):
-    logger.info(f"SSE Handshake: Method={request.scope.get('method')}, Path={request.scope.get('path')}")
-    try:
-        async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
-            await mcp.run(
-                read_stream,
-                write_stream,
-                mcp._lowlevel_server.create_initialization_options()
-            )
-    except Exception as e:
-        logger.error(f"SSE Error: {str(e)}")
-        logger.error(f"Scope at error: {request.scope}")
-        raise e
-
-@app.post("/mcp/messages")
-async def handle_messages(request: Request):
-    await sse.handle_post_message(request.scope, request.receive, request._send)
+mcp_app = mcp.sse_app(
+    sse_path="/sse",
+    message_path="/messages/",
+    transport_security=security_settings
+)
+app.mount("/mcp", mcp_app)
 
 @app.get("/health")
 async def health():
