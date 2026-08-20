@@ -2,13 +2,13 @@ import logging
 import os
 import json
 from starlette.applications import Starlette
-from starlette.routing import Route
+from starlette.routing import Route, Mount
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
-from mcp.server.transport_security import TransportSecuritySettings, TransportSecurityMiddleware
+from mcp.server.transport_security import TransportSecurityMiddleware
 from config import settings
 from client import ARIAEngineClient
 
@@ -76,34 +76,35 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if norm_path in ["", "/health", "/docs", "/openapi.json"]:
             return await call_next(request)
             
-        # Require Bearer token for /mcp endpoints
-        if norm_path.startswith("/mcp"):
-            auth_header = request.headers.get("Authorization")
-            if not auth_header or not auth_header.startswith("Bearer "):
-                return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing or invalid Bearer token"})
-            token = auth_header.split(" ")[1]
-            if token != settings.aria_bridge_api_key:
-                return JSONResponse(status_code=403, content={"detail": "Forbidden: Invalid API key"})
+        # Allow /sse and /messages endpoints
+        if norm_path.startswith("/sse") or norm_path.startswith("/messages"):
             return await call_next(request)
+            
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing or invalid Bearer token"})
+        
+        token = auth_header.split(" ")[1]
+        if token != settings.aria_bridge_api_key:
+            return JSONResponse(status_code=403, content={"detail": "Forbidden: Invalid API key"})
             
         return await call_next(request)
 
-# --- Create Streamable HTTP App from MCP with trailing slash path ---
-security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
-app = mcp.streamable_http_app(
-    streamable_http_path="/mcp/",
-    transport_security=security_settings
+# --- Create SSE App from MCP ---
+app = mcp.sse_app(
+    sse_path="/sse",
+    message_path="/messages/"
 )
 app.router.redirect_slashes = False
 
-# Re-apply middleware
+# Re-apply middleware and routes
 app.user_middleware.insert(0, Middleware(APIKeyMiddleware))
 
 async def health(request: Request):
     return JSONResponse({"status": "ok", "service": "aria-bridge"})
 
 async def root(request: Request):
-    return JSONResponse({"message": "ARIA Bridge (Remote MCP Server) operational", "version": settings.app_version, "endpoint": "/mcp/"})
+    return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "transport": "sse", "endpoint": "/sse"})
 
 app.router.routes.insert(0, Route("/health", health, methods=["GET"]))
 app.router.routes.insert(0, Route("/", root, methods=["GET"]))
