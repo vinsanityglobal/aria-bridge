@@ -25,7 +25,7 @@ logger = logging.getLogger("aria_bridge")
 # --- ARIAEngine Client ---
 aria_client = ARIAEngineClient()
 
-# --- MCP Server Setup ---
+# --- MCP Server Setup & Tool Registration ---
 mcp = MCPServer(settings.app_name)
 
 @mcp.tool()
@@ -93,7 +93,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
-# --- Create SSE App from MCP ---
+# --- Create SSE App from MCP (After Tools Registered) ---
 app = mcp.sse_app(
     sse_path="/sse",
     message_path="/messages/"
