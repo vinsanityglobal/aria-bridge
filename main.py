@@ -7,6 +7,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecurityMiddleware
 from config import settings
@@ -91,20 +92,21 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
-# --- Create Streamable HTTP App from MCP with trailing slash path ---
+# --- Create Streamable HTTP App from MCP ---
 app = mcp.streamable_http_app(
-    streamable_http_path="/mcp/"
+    streamable_http_path="/mcp"
 )
 app.router.redirect_slashes = False
 
-# Re-apply middleware and routes
+# Re-apply middleware and routes (including ProxyHeadersMiddleware)
 app.user_middleware.insert(0, Middleware(APIKeyMiddleware))
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 async def health(request: Request):
     return JSONResponse({"status": "ok", "service": "aria-bridge"})
 
 async def root(request: Request):
-    return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "transport": "streamable_http", "endpoint": "/mcp/"})
+    return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "transport": "streamable_http", "endpoint": "/mcp"})
 
 app.router.routes.insert(0, Route("/health", health, methods=["GET"]))
 app.router.routes.insert(0, Route("/", root, methods=["GET"]))
@@ -112,4 +114,4 @@ app.router.routes.insert(0, Route("/", root, methods=["GET"]))
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8001))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True)
