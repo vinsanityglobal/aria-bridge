@@ -5,7 +5,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
 async def main():
-    url = "https://aria-bridge-production.up.railway.app/"
+    url = "https://aria-bridge-production.up.railway.app/mcp"
     headers = {"Authorization": "Bearer aria-bridge-v1-9823472394"}
     
     print(f"Connecting to Streamable HTTP endpoint {url}...")

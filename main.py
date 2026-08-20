@@ -5,6 +5,7 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
@@ -70,18 +71,6 @@ security_settings = TransportSecuritySettings(
     allowed_origins=["*"]
 )
 
-# --- Create Streamable HTTP App from MCP ---
-app = mcp.streamable_http_app(
-    streamable_http_path="/",
-    transport_security=security_settings
-)
-
-# --- Health Endpoint ---
-async def health(request: Request):
-    return JSONResponse({"status": "ok", "service": "aria-bridge"})
-
-app.router.routes.append(Route("/health", health, methods=["GET"]))
-
 # --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -105,7 +94,27 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
-app.add_middleware(APIKeyMiddleware)
+middleware = [
+    Middleware(APIKeyMiddleware)
+]
+
+# --- Create Streamable HTTP App from MCP ---
+app = mcp.streamable_http_app(
+    streamable_http_path="/mcp",
+    transport_security=security_settings
+)
+
+# Re-apply middleware and routes to the Starlette app
+app.user_middleware.insert(0, Middleware(APIKeyMiddleware))
+
+async def health(request: Request):
+    return JSONResponse({"status": "ok", "service": "aria-bridge"})
+
+async def root(request: Request):
+    return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "endpoint": "/mcp"})
+
+app.router.routes.insert(0, Route("/health", health, methods=["GET"]))
+app.router.routes.insert(0, Route("/", root, methods=["GET"]))
 
 if __name__ == "__main__":
     import uvicorn
