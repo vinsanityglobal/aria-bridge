@@ -12,8 +12,11 @@ from mcp.server.transport_security import TransportSecurityMiddleware
 from config import settings
 from client import ARIAEngineClient
 
-# --- Foolproof Transport Security Bypass ---
-TransportSecurityMiddleware.validate_request = lambda self, req, is_post=False: None
+# --- Foolproof Async Transport Security Bypass ---
+async def _bypass_validate(self, request, is_post=False):
+    return None
+
+TransportSecurityMiddleware.validate_request = _bypass_validate
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
