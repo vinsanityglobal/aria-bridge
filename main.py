@@ -73,10 +73,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if norm_path in ["", "/health", "/docs", "/openapi.json"]:
             return await call_next(request)
             
-        # Allow MCP endpoint
-        if norm_path.startswith("/mcp"):
-            return await call_next(request)
-            
+        # Allow MCP endpoint at root
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
@@ -89,6 +86,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(APIKeyMiddleware)
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "aria-bridge"}
+
 # --- Mount Streamable HTTP MCP App at Root ---
 security_settings = TransportSecuritySettings(
     enable_dns_rebinding_protection=True,
@@ -99,11 +100,7 @@ mcp_app = mcp.streamable_http_app(
     streamable_http_path="/",
     transport_security=security_settings
 )
-app.mount("/mcp", mcp_app)
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "aria-bridge"}
+app.mount("/", mcp_app)
 
 if __name__ == "__main__":
     import uvicorn
