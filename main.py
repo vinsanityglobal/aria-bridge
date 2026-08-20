@@ -88,10 +88,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
-# --- Create Streamable HTTP App from MCP ---
+# --- Create Streamable HTTP App from MCP with trailing slash path ---
 security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
 app = mcp.streamable_http_app(
-    streamable_http_path="/mcp",
+    streamable_http_path="/mcp/",
     transport_security=security_settings
 )
 app.router.redirect_slashes = False
@@ -103,7 +103,7 @@ async def health(request: Request):
     return JSONResponse({"status": "ok", "service": "aria-bridge"})
 
 async def root(request: Request):
-    return JSONResponse({"message": "ARIA Bridge (Remote MCP Server) operational", "version": settings.app_version, "endpoint": "/mcp"})
+    return JSONResponse({"message": "ARIA Bridge (Remote MCP Server) operational", "version": settings.app_version, "endpoint": "/mcp/"})
 
 app.router.routes.insert(0, Route("/health", health, methods=["GET"]))
 app.router.routes.insert(0, Route("/", root, methods=["GET"]))
@@ -112,4 +112,3 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8001))
     uvicorn.run(app, host="0.0.0.0", port=port)
-# Ensure redirect slashes disabled
