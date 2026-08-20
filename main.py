@@ -73,7 +73,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if norm_path in ["", "/health", "/docs", "/openapi.json"]:
             return await call_next(request)
             
-        # Allow all /mcp/* paths
+        # Allow MCP endpoint
         if norm_path.startswith("/mcp"):
             return await call_next(request)
             
@@ -89,26 +89,21 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(APIKeyMiddleware)
 
-# --- Mount MCP SSE App at /mcp ---
+# --- Mount Streamable HTTP MCP App at Root ---
 security_settings = TransportSecuritySettings(
     enable_dns_rebinding_protection=True,
     allowed_hosts=["aria-bridge-production.up.railway.app", "aria-bridge-production.up.railway.app:443", "aria-bridge-production.up.railway.app:*", "*", "localhost", "127.0.0.1"],
     allowed_origins=["*"]
 )
-mcp_app = mcp.sse_app(
-    sse_path="/sse",
-    message_path="/messages/",
+mcp_app = mcp.streamable_http_app(
+    streamable_http_path="/mcp",
     transport_security=security_settings
 )
-app.mount("/mcp", mcp_app)
+app.mount("/", mcp_app)
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "aria-bridge"}
-
-@app.get("/")
-async def root():
-    return {"message": "ARIA Bridge operational. Use /mcp/sse for MCP connection."}
 
 if __name__ == "__main__":
     import uvicorn

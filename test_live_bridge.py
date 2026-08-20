@@ -2,24 +2,19 @@ import asyncio
 import json
 import httpx2
 from mcp import ClientSession
-from mcp.client.sse import sse_client
-
-def custom_client_factory(headers=None, timeout=None, auth=None):
-    return httpx2.AsyncClient(
-        http2=False,
-        follow_redirects=True,
-        headers=headers,
-        timeout=timeout or httpx2.Timeout(30.0, read=300.0),
-        auth=auth
-    )
+from mcp.client.streamable_http import streamable_http_client
 
 async def main():
-    url = "https://aria-bridge-production.up.railway.app/mcp/sse"
+    url = "https://aria-bridge-production.up.railway.app/mcp"
     headers = {"Authorization": "Bearer aria-bridge-v1-9823472394"}
     
-    print(f"Connecting to {url}...")
+    print(f"Connecting to Streamable HTTP endpoint {url}...")
     try:
-        async with sse_client(url, headers=headers, timeout=30.0, httpx_client_factory=custom_client_factory) as (read_stream, write_stream):
+        http_client = httpx2.AsyncClient(
+            headers=headers,
+            timeout=httpx2.Timeout(30.0, read=300.0)
+        )
+        async with streamable_http_client(url, http_client=http_client) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 
@@ -29,7 +24,7 @@ async def main():
                 
                 print("\nCalling aria_recall...")
                 result = await session.call_tool("aria_recall", arguments={"query": "ARIA", "limit": 1})
-                print(f"Recall Success: {json.loads(result.content[0].text)['success']}")
+                print(f"Recall Output:\n{result.content[0].text}")
                 
     except Exception as e:
         import traceback
