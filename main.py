@@ -1,9 +1,12 @@
 import logging
 import os
+import json
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
+from mcp.server.sse import SseServerTransport
+from mcp.server.transport_security import TransportSecuritySettings
 from config import settings
 from client import ARIAEngineClient
 
@@ -65,11 +68,13 @@ app = FastAPI(title=settings.app_name, version=settings.app_version)
 # --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # The middleware only applies to the main app routes
-        # Mounted apps (like /mcp) are NOT covered by this middleware
-        # unless added explicitly to them.
+        path = request.url.path
+        norm_path = path.rstrip("/")
         
-        if request.url.path in ["/", "/health"]:
+        if norm_path in ["", "/health"]:
+            return await call_next(request)
+            
+        if norm_path == "/mcp/sse" and request.method == "GET":
             return await call_next(request)
             
         auth_header = request.headers.get("Authorization")
@@ -82,14 +87,30 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
-# Add middleware to the main app
 app.add_middleware(APIKeyMiddleware)
 
 # --- MCP Transport Setup ---
-# Mount the MCP SSE app at /mcp
-# This bypasses the APIKeyMiddleware of the main app
-mcp_sse_app = mcp.sse_app()
-app.mount("/mcp", mcp_sse_app)
+security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+sse = SseServerTransport("/mcp/messages/", security_settings=security_settings)
+
+@app.get("/mcp/sse")
+async def handle_sse(request: Request):
+    logger.info(f"SSE Handshake: Method={request.scope.get('method')}, Path={request.scope.get('path')}")
+    try:
+        async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
+            await mcp.run(
+                read_stream,
+                write_stream,
+                mcp._lowlevel_server.create_initialization_options()
+            )
+    except Exception as e:
+        logger.error(f"SSE Error: {str(e)}")
+        logger.error(f"Scope at error: {request.scope}")
+        raise e
+
+@app.post("/mcp/messages")
+async def handle_messages(request: Request):
+    await sse.handle_post_message(request.scope, request.receive, request._send)
 
 @app.get("/health")
 async def health():
