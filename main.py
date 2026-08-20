@@ -67,15 +67,19 @@ app = FastAPI(title=settings.app_name, version=settings.app_version)
 # --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        # Normalize path by removing trailing slash for comparison
+        norm_path = path.rstrip("/")
+        
         # Skip auth for health and root
-        if request.url.path in ["/", "/health"]:
+        if norm_path in ["", "/health"]:
             return await call_next(request)
             
-        # Allow the initial SSE GET connection
-        if "/sse" in request.url.path and request.method == "GET":
+        # Allow the initial SSE GET connection (check both /sse and /sse/)
+        if norm_path == "/sse" and request.method == "GET":
             return await call_next(request)
             
-        # Auth required for everything else (including POST /messages)
+        # Auth required for everything else
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
@@ -89,7 +93,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 app.add_middleware(APIKeyMiddleware)
 
 # --- MCP Transport Setup ---
-sse = SseServerTransport("/messages")
+sse = SseServerTransport("/messages/")
 
 @app.get("/sse")
 async def handle_sse(request: Request):
