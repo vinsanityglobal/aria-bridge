@@ -66,9 +66,7 @@ async def aria_run_gravity(thesis: str, publication: str = "TheSciFiScene", cont
 
 # --- Transport Security ---
 security_settings = TransportSecuritySettings(
-    enable_dns_rebinding_protection=True,
-    allowed_hosts=["aria-bridge-production.up.railway.app", "aria-bridge-production.up.railway.app:443", "aria-bridge-production.up.railway.app:*", "*", "localhost", "127.0.0.1"],
-    allowed_origins=["*"]
+    enable_dns_rebinding_protection=False
 )
 
 # --- Authentication Middleware ---
