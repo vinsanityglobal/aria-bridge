@@ -72,7 +72,7 @@ security_settings = TransportSecuritySettings(
 
 # --- Create Streamable HTTP App from MCP ---
 app = mcp.streamable_http_app(
-    streamable_http_path="/mcp",
+    streamable_http_path="/",
     transport_security=security_settings
 )
 
