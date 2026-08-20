@@ -90,7 +90,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 app.add_middleware(APIKeyMiddleware)
 
 # --- Mount MCP SSE App at /mcp ---
-security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+security_settings = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=["aria-bridge-production.up.railway.app", "localhost", "127.0.0.1"]
+)
 mcp_app = mcp.sse_app(
     sse_path="/sse",
     message_path="/messages/",
