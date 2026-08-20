@@ -1,6 +1,5 @@
 import asyncio
 import json
-import httpx2
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 

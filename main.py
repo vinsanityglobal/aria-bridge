@@ -5,12 +5,9 @@ from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
-from mcp.server.transport_security import TransportSecurityMiddleware
+from mcp.server.transport_security import TransportSecuritySettings
 from config import settings
 from client import ARIAEngineClient
-
-# --- Disable Transport Security Validation globally ---
-TransportSecurityMiddleware.validate_request = lambda self, req, is_post=False: None
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -80,10 +77,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if norm_path.startswith("/mcp"):
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
-                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing or invalid Bearer token"})
             token = auth_header.split(" ")[1]
             if token != settings.aria_bridge_api_key:
-                return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+                return JSONResponse(status_code=403, content={"detail": "Forbidden: Invalid API key"})
             return await call_next(request)
             
         return await call_next(request)
@@ -96,12 +93,19 @@ async def health():
 
 @app.get("/")
 async def root():
-    return {"message": "ARIA Bridge operational", "version": settings.app_version, "endpoint": "/mcp/sse"}
+    return {"message": "ARIA Bridge (Remote MCP Server) is operational. Use /sse for MCP connection.", "version": settings.app_version, "endpoint": "/mcp/sse"}
 
 # --- Mount SSE App at /mcp ---
+security_settings = TransportSecuritySettings(
+    enable_dns_rebinding_protection=False,
+    allowed_hosts=["*"],
+    allowed_origins=["*"]
+)
+
 mcp_app = mcp.sse_app(
     sse_path="/sse",
-    message_path="/messages/"
+    message_path="/messages/",
+    transport_security=security_settings
 )
 app.mount("/mcp", mcp_app)
 
