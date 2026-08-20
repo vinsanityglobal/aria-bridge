@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     
     # --- Auth ---
     # Key that external clients (Vitruvius/ChatGPT) must provide to call the Bridge
-    aria_bridge_api_key: str = os.getenv("ARIA_BRIDGE_API_KEY", "bridge-secret-key")
+    aria_bridge_api_key: str = os.getenv("ARIA_BRIDGE_API_KEY", "aria-bridge-v1-9823472394")
     
     # --- ARIAEngine Connection ---
     # The production ARIAEngine URL
