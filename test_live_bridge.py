@@ -5,7 +5,7 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 
 async def main():
-    url = "https://aria-bridge-production.up.railway.app/sse"
+    url = "https://aria-bridge-production.up.railway.app/mcp/sse"
     headers = {"Authorization": "Bearer aria-bridge-v1-9823472394"}
     
     print(f"Connecting to SSE endpoint {url}...")
