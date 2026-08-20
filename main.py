@@ -1,8 +1,10 @@
 import logging
 import os
 import json
-from fastapi import FastAPI, Request
-from starlette.responses import JSONResponse
+from starlette.applications import Starlette
+from starlette.routing import Route
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
@@ -61,8 +63,24 @@ async def aria_run_gravity(thesis: str, publication: str = "TheSciFiScene", cont
     )
     return json.dumps(result, indent=2)
 
-# --- FastAPI App ---
-app = FastAPI(title=settings.app_name, version=settings.app_version)
+# --- Transport Security ---
+security_settings = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=["aria-bridge-production.up.railway.app", "aria-bridge-production.up.railway.app:443", "aria-bridge-production.up.railway.app:*", "*", "localhost", "127.0.0.1"],
+    allowed_origins=["*"]
+)
+
+# --- Create Streamable HTTP App from MCP ---
+app = mcp.streamable_http_app(
+    streamable_http_path="/mcp",
+    transport_security=security_settings
+)
+
+# --- Health Endpoint ---
+async def health(request: Request):
+    return JSONResponse({"status": "ok", "service": "aria-bridge"})
+
+app.router.routes.append(Route("/health", health, methods=["GET"]))
 
 # --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
@@ -88,22 +106,6 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 app.add_middleware(APIKeyMiddleware)
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "aria-bridge"}
-
-# --- Mount Streamable HTTP MCP App at Root with /mcp path ---
-security_settings = TransportSecuritySettings(
-    enable_dns_rebinding_protection=True,
-    allowed_hosts=["aria-bridge-production.up.railway.app", "aria-bridge-production.up.railway.app:443", "aria-bridge-production.up.railway.app:*", "*", "localhost", "127.0.0.1"],
-    allowed_origins=["*"]
-)
-mcp_app = mcp.streamable_http_app(
-    streamable_http_path="/mcp",
-    transport_security=security_settings
-)
-app.mount("/", mcp_app)
 
 if __name__ == "__main__":
     import uvicorn
