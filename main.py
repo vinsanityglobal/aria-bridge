@@ -103,6 +103,7 @@ app = mcp.streamable_http_app(
     streamable_http_path="/mcp",
     transport_security=security_settings
 )
+app.router.redirect_slashes = False
 
 # Re-apply middleware and routes to the Starlette app
 app.user_middleware.insert(0, Middleware(APIKeyMiddleware))
