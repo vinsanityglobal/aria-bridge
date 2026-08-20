@@ -1,8 +1,11 @@
 import logging
 import os
 import json
-from fastapi import FastAPI, Request
+from starlette.applications import Starlette
+from starlette.routing import Route
+from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecurityMiddleware
@@ -64,9 +67,6 @@ async def aria_run_gravity(thesis: str, publication: str = "TheSciFiScene", cont
     )
     return json.dumps(result, indent=2)
 
-# --- FastAPI App ---
-app = FastAPI(title=settings.app_name, version=settings.app_version)
-
 # --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -88,22 +88,24 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
-app.add_middleware(APIKeyMiddleware)
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "aria-bridge"}
-
-@app.get("/")
-async def root():
-    return {"message": "ARIA Bridge (Remote MCP Server) is operational. Use /sse for MCP connection.", "version": settings.app_version, "endpoint": "/mcp/sse"}
-
-# --- Mount SSE App at /mcp ---
-mcp_app = mcp.sse_app(
-    sse_path="/sse",
-    message_path="/messages/"
+# --- Create Flat SSE App from MCP ---
+app = mcp.sse_app(
+    sse_path="/mcp/sse",
+    message_path="/mcp/messages/"
 )
-app.mount("/mcp", mcp_app)
+app.router.redirect_slashes = False
+
+# Re-apply middleware
+app.user_middleware.insert(0, Middleware(APIKeyMiddleware))
+
+async def health(request: Request):
+    return JSONResponse({"status": "ok", "service": "aria-bridge"})
+
+async def root(request: Request):
+    return JSONResponse({"message": "ARIA Bridge (Remote MCP Server) is operational.", "version": settings.app_version, "endpoint": "/mcp/sse"})
+
+app.router.routes.insert(0, Route("/health", health, methods=["GET"]))
+app.router.routes.insert(0, Route("/", root, methods=["GET"]))
 
 if __name__ == "__main__":
     import uvicorn
