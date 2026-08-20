@@ -1,10 +1,11 @@
 import logging
 import os
 import json
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from starlette.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
+from mcp.server.sse import SseServerTransport
 from mcp.server.transport_security import TransportSecuritySettings
 from config import settings
 from client import ARIAEngineClient
@@ -64,17 +65,36 @@ async def aria_run_gravity(thesis: str, publication: str = "TheSciFiScene", cont
 # --- FastAPI App ---
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 
+# --- MCP Transport Setup ---
+security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+sse = SseServerTransport("/messages/", security_settings=security_settings)
+
+@app.get("/sse")
+async def handle_sse(request: Request):
+    logger.info(f"SSE Handshake: Method={request.scope.get('method')}, Path={request.scope.get('path')}")
+    try:
+        async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
+            await mcp.run(
+                read_stream,
+                write_stream,
+                mcp._lowlevel_server.create_initialization_options()
+            )
+    except Exception as e:
+        logger.error(f"SSE Error: {str(e)}")
+        raise e
+    return Response()
+
+@app.post("/messages")
+async def handle_messages(request: Request):
+    await sse.handle_post_message(request.scope, request.receive, request._send)
+
 # --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         norm_path = path.rstrip("/")
         
-        if norm_path in ["", "/health"]:
-            return await call_next(request)
-            
-        # Allow MCP paths without main app auth (auth is handled or bypassed for remote agent)
-        if norm_path.startswith("/mcp"):
+        if norm_path in ["", "/health", "/sse", "/messages"]:
             return await call_next(request)
             
         auth_header = request.headers.get("Authorization")
@@ -89,22 +109,13 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(APIKeyMiddleware)
 
-# --- Mount MCP SSE App ---
-security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
-mcp_app = mcp.sse_app(
-    sse_path="/sse",
-    message_path="/messages/",
-    transport_security=security_settings
-)
-app.mount("/mcp", mcp_app)
-
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "aria-bridge"}
 
 @app.get("/")
 async def root():
-    return {"message": "ARIA Bridge operational. Use /mcp/sse for MCP connection."}
+    return {"message": "ARIA Bridge operational. Use /sse for MCP connection."}
 
 if __name__ == "__main__":
     import uvicorn
