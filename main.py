@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server import MCPServer
-from mcp.server.transport_security import TransportSecurityMiddleware
+from mcp.server.transport_security import TransportSecuritySettings, TransportSecurityMiddleware
 from config import settings
 from client import ARIAEngineClient
 
@@ -88,10 +88,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             
         return await call_next(request)
 
-# --- Create Flat SSE App from MCP ---
-app = mcp.sse_app(
-    sse_path="/mcp/sse",
-    message_path="/mcp/messages/"
+# --- Create Streamable HTTP App from MCP ---
+security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+app = mcp.streamable_http_app(
+    streamable_http_path="/mcp",
+    transport_security=security_settings
 )
 app.router.redirect_slashes = False
 
@@ -102,7 +103,7 @@ async def health(request: Request):
     return JSONResponse({"status": "ok", "service": "aria-bridge"})
 
 async def root(request: Request):
-    return JSONResponse({"message": "ARIA Bridge (Remote MCP Server) is operational.", "version": settings.app_version, "endpoint": "/mcp/sse"})
+    return JSONResponse({"message": "ARIA Bridge (Remote MCP Server) operational", "version": settings.app_version, "endpoint": "/mcp"})
 
 app.router.routes.insert(0, Route("/health", health, methods=["GET"]))
 app.router.routes.insert(0, Route("/", root, methods=["GET"]))
