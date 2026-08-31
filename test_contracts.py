@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -38,11 +39,10 @@ def test_response_requires_bounded_confidence():
         )
 
 
-@pytest.mark.asyncio
-async def test_interpretation_fails_closed_when_capability_unconfigured(monkeypatch):
+def test_interpretation_fails_closed_when_capability_unconfigured(monkeypatch):
     from config import settings
 
     monkeypatch.setattr(settings, "aria_interpret_capability", None)
     client = ARIAEngineClient()
     with pytest.raises(RuntimeError, match="not configured"):
-        await client.interpret(sample_request())
+        asyncio.run(client.interpret(sample_request()))
