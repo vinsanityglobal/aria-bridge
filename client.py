@@ -2,6 +2,7 @@ import httpx
 import logging
 from typing import Any, Optional
 from config import settings
+from contracts import InterpretationRequest, InterpretationResponse
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,7 @@ class ARIAEngineClient:
 
     async def _post(self, endpoint: str, payload: dict[str, Any], context: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
-        
-        # Build standard CR-21 envelope
+
         request_body = {
             "client": {
                 "type": "operator",
@@ -40,7 +40,6 @@ class ARIAEngineClient:
                 raise
 
     async def get_health(self) -> dict[str, Any]:
-        # ARIAEngine health is at /api/health
         health_url = f"{settings.ariaengine_url.rstrip('/')}/api/health"
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(health_url)
@@ -54,7 +53,6 @@ class ARIAEngineClient:
         return await self._post("recall", payload, context={"intent": "recall_knowledge", "domain": domain})
 
     async def intake(self, source_title: str, content: str, source_type: str = "research", source_url: Optional[str] = None) -> dict[str, Any]:
-        # Transform MCP ingest into IntakePayload
         payload = {
             "source": {
                 "source_name": source_title,
@@ -72,14 +70,40 @@ class ARIAEngineClient:
         }
         return await self._post("intake", payload, context={"intent": "ingest_document"})
 
-    async def run_gravity(self, thesis: str, publication: str, context_payload: Optional[str] = None) -> dict[str, Any]:
+    async def invoke_capability(self, capability: str, intent: str, parameters: dict[str, Any]) -> dict[str, Any]:
         payload = {
-            "capability": "gravity",
-            "intent": "create_article",
-            "parameters": {
+            "capability": capability,
+            "intent": intent,
+            "parameters": parameters,
+        }
+        return await self._post(
+            "capabilities/invoke",
+            payload,
+            context={"intent": intent, "capability": capability},
+        )
+
+    async def interpret(self, request: InterpretationRequest) -> InterpretationResponse:
+        capability = settings.aria_interpret_capability
+        if not capability:
+            raise RuntimeError(
+                "ARIA interpretation capability is not configured. "
+                "Set ARIA_INTERPRET_CAPABILITY only after mapping it to a verified existing ARIA capability."
+            )
+        raw = await self.invoke_capability(
+            capability=capability,
+            intent="interpret_evidence",
+            parameters=request.model_dump(mode="json"),
+        )
+        payload = raw.get("result", raw.get("data", raw))
+        return InterpretationResponse.model_validate(payload)
+
+    async def run_gravity(self, thesis: str, publication: str, context_payload: Optional[str] = None) -> dict[str, Any]:
+        return await self.invoke_capability(
+            capability="gravity",
+            intent="create_article",
+            parameters={
                 "topic": thesis,
                 "publication_id": publication,
                 "context_payload": context_payload
             }
-        }
-        return await self._post("capabilities/invoke", payload, context={"intent": "invoke_gravity"})
+        )
