@@ -4,7 +4,7 @@ import json
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -12,6 +12,7 @@ from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecurityMiddleware
 from config import settings
 from client import ARIAEngineClient
+from contracts import InterpretationRequest
 
 # --- Foolproof Async Transport Security Bypass ---
 async def _bypass_validate(self, request, is_post=False):
@@ -19,14 +20,11 @@ async def _bypass_validate(self, request, is_post=False):
 
 TransportSecurityMiddleware.validate_request = _bypass_validate
 
-# --- Logging ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("aria_bridge")
 
-# --- ARIAEngine Client ---
 aria_client = ARIAEngineClient()
 
-# --- MCP Server Setup & Tool Registration ---
 mcp = MCPServer(settings.app_name)
 
 @mcp.tool()
@@ -45,42 +43,39 @@ async def aria_health() -> str:
 @mcp.tool()
 async def aria_recall(query: str, domain: str = None, limit: int = 5) -> str:
     """Retrieve relevant ARIA memory, knowledge, and doctrine for a subject."""
-    import json
     result = await aria_client.recall(query, domain, limit)
     return json.dumps(result, indent=2)
 
 @mcp.tool()
 async def aria_ingest(source_title: str, content: str, source_type: str = "research", source_url: str = None) -> str:
     """Submit externally gathered research or source material into ARIA's ingestion pipeline."""
-    import json
-    result = await aria_client.ingest(source_title, content, source_type, source_url)
+    result = await aria_client.intake(source_title, content, source_type, source_url)
     return json.dumps(result, indent=2)
+
+@mcp.tool()
+async def aria_interpret(request_json: str) -> str:
+    """Interpret a bounded evidence packet using an explicitly configured existing ARIA capability."""
+    try:
+        request = InterpretationRequest.model_validate_json(request_json)
+        result = await aria_client.interpret(request)
+        return result.model_dump_json(indent=2)
+    except Exception as e:
+        return json.dumps({"status": "blocked", "error": str(e)}, indent=2)
 
 @mcp.tool()
 async def aria_run_gravity(thesis: str, publication: str = "TheSciFiScene", context_payload: str = None) -> str:
     """Invoke the Gravity writing system to generate professional editorial content."""
-    import json
-    result = await aria_client.invoke_capability(
-        capability="gravity",
-        intent="create_article",
-        parameters={
-            "thesis": thesis,
-            "publication": publication,
-            "context_payload": context_payload
-        }
-    )
+    result = await aria_client.run_gravity(thesis, publication, context_payload)
     return json.dumps(result, indent=2)
 
-# --- Authentication Middleware ---
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         norm_path = path.rstrip("/")
-        
+
         if norm_path in ["", "/health", "/docs", "/openapi.json"]:
             return await call_next(request)
-            
-        # Require Bearer token for /mcp endpoints
+
         if norm_path.startswith("/mcp"):
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
@@ -89,12 +84,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             if token != settings.aria_bridge_api_key:
                 return JSONResponse(status_code=403, content={"detail": "Forbidden: Invalid API key"})
             return await call_next(request)
-            
+
         return await call_next(request)
 
-# --- Build Starlette App with Mounted Streamable HTTP App ---
 async def health(request: Request):
-    return JSONResponse({"status": "ok", "service": "aria-bridge"})
+    return JSONResponse({"status": "ok", "service": "aria-bridge", "version": settings.app_version})
 
 async def root(request: Request):
     return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "transport": "streamable_http", "endpoint": "/mcp"})
