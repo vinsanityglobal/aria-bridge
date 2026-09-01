@@ -76,7 +76,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if norm_path in ["", "/health", "/docs", "/openapi.json"]:
             return await call_next(request)
 
-        if norm_path.startswith("/mcp"):
+        if norm_path.startswith("/mcp") or norm_path.startswith("/v1"):
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing or invalid Bearer token"})
@@ -93,12 +93,37 @@ async def health(request: Request):
 async def root(request: Request):
     return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "transport": "streamable_http", "endpoint": "/mcp"})
 
+async def invoke_capability_http(request: Request):
+    try:
+        body = await request.json()
+        capability = body.get("capability")
+        intent = body.get("intent")
+        parameters = body.get("parameters")
+
+        if not isinstance(capability, str) or not capability.strip():
+            return JSONResponse(status_code=422, content={"detail": "capability is required"})
+        if not isinstance(intent, str) or not intent.strip():
+            return JSONResponse(status_code=422, content={"detail": "intent is required"})
+        if not isinstance(parameters, dict):
+            return JSONResponse(status_code=422, content={"detail": "parameters must be an object"})
+
+        result = await aria_client.invoke_capability(
+            capability=capability,
+            intent=intent,
+            parameters=parameters,
+        )
+        return JSONResponse(result)
+    except Exception as exc:
+        logger.exception("Generic capability invocation failed")
+        return JSONResponse(status_code=502, content={"detail": str(exc)})
+
 streamable_app = mcp.streamable_http_app(streamable_http_path="/")
 
 app = Starlette(
     routes=[
         Route("/health", health, methods=["GET"]),
         Route("/", root, methods=["GET"]),
+        Route("/v1/capabilities/invoke", invoke_capability_http, methods=["POST"]),
         Mount("/mcp", streamable_app),
     ],
     middleware=[
