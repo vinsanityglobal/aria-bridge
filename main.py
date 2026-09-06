@@ -1,6 +1,7 @@
 import logging
 import os
 import json
+from datetime import datetime, timezone
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
 from starlette.requests import Request
@@ -12,7 +13,8 @@ from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecurityMiddleware
 from config import settings
 from client import ARIAEngineClient
-from contracts import InterpretationRequest
+from contracts import CR028RecallRequest, InterpretationRequest
+from cr028_service import CR028RecallService
 
 # --- Foolproof Async Transport Security Bypass ---
 async def _bypass_validate(self, request, is_post=False):
@@ -24,6 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("aria_bridge")
 
 aria_client = ARIAEngineClient()
+cr028_recall_service = CR028RecallService(aria_client)
 
 mcp = MCPServer(settings.app_name)
 
@@ -93,6 +96,42 @@ async def health(request: Request):
 async def root(request: Request):
     return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "transport": "streamable_http", "endpoint": "/mcp"})
 
+async def recall_prior_intelligence_http(request: Request):
+    """Governed, read-only CR-028 AESS recall operation."""
+    body = {}
+    try:
+        body = await request.json()
+        recall_request = CR028RecallRequest.model_validate(body)
+    except Exception as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "contract_version": "1.0",
+                "request_id": body.get("request_id", "") if isinstance(body, dict) else "",
+                "status": "malformed_request",
+                "relevant_prior_intelligence": [],
+                "historical_analogs": [],
+                "relationships": [],
+                "provenance": [],
+                "retrieval_timestamp": datetime.now(timezone.utc).isoformat(),
+                "warnings": [],
+                "errors": [{"classification": "malformed_request", "message": str(exc)}],
+                "telemetry": {
+                    "request_id": body.get("request_id", "") if isinstance(body, dict) else "",
+                    "caller": body.get("caller", "") if isinstance(body, dict) else "",
+                    "requested_operation": "recall_prior_intelligence",
+                    "status": "malformed_request",
+                    "latency_ms": 0,
+                    "result_count": 0,
+                    "kernel_writes": 0,
+                },
+            },
+        )
+
+    result = await cr028_recall_service.recall_prior_intelligence(recall_request)
+    return JSONResponse(result.model_dump(mode="json"), status_code=200)
+
+
 async def invoke_capability_http(request: Request):
     try:
         body = await request.json()
@@ -123,6 +162,7 @@ app = Starlette(
     routes=[
         Route("/health", health, methods=["GET"]),
         Route("/", root, methods=["GET"]),
+        Route("/v1/recall-prior-intelligence", recall_prior_intelligence_http, methods=["POST"]),
         Route("/v1/capabilities/invoke", invoke_capability_http, methods=["POST"]),
         Mount("/mcp", streamable_app),
     ],
