@@ -1,0 +1,38 @@
+name: CR-028 governed recall tests
+
+on:
+  push:
+    branches:
+      - cr028-governed-recall
+  pull_request:
+    paths:
+      - "main.py"
+      - "config.py"
+      - "contracts.py"
+      - "cr028_service.py"
+      - "test_cr028.py"
+      - ".github/workflows/cr028-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Run CR-028 test suite
+        env:
+          AESS_BRIDGE_API_KEY: test-aess-bridge-key
+          ARIA_BRIDGE_API_KEY: test-general-bridge-key
+          ARIA_CLIENT_API_KEY: test-aria-client-key
+        run: pytest -q test_cr028.py
