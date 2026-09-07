@@ -1,14 +1,21 @@
 import os
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     # --- Bridge Identity ---
     app_name: str = "ARIA Bridge"
     app_version: str = "1.1.0"
 
     # --- Auth ---
-    # Key that external clients (Vitruvius/ChatGPT) must provide to call the Bridge
-    aria_bridge_api_key: str = os.getenv("ARIA_BRIDGE_API_KEY", "aria-bridge-v1-9823472394")
+    # Shared Bridge key for general Bridge clients. No hard-coded fallback is permitted.
+    aria_bridge_api_key: str = os.getenv("ARIA_BRIDGE_API_KEY", "")
+
+    # Dedicated AESS credential for governed CR-028 recall.
+    # Caller identity is derived from possession of this credential and is not trusted
+    # from request-body metadata.
+    aess_bridge_api_key: str = os.getenv("AESS_BRIDGE_API_KEY", "")
+    aess_caller_id: str = os.getenv("AESS_CALLER_ID", "aess-spatial-awareness")
 
     # --- ARIAEngine Connection ---
     # The production ARIAEngine URL
@@ -23,5 +30,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         extra = "ignore"
+
 
 settings = Settings()
