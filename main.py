@@ -100,7 +100,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             request.state.authorized_operation = "recall_prior_intelligence"
             return await call_next(request)
 
-        if norm_path.startswith("/mcp") or norm_path.startswith("/v1"):
+        if norm_path.startswith("/mcp") or norm_path == "/v1/capabilities/invoke":
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing or invalid Bearer token"})
