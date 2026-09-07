@@ -4,12 +4,15 @@ import httpx
 from starlette.testclient import TestClient
 
 import main
-from client import ARIAEngineClient
 from contracts import CR028RecallRequest
 from cr028_service import CR028RecallService
 
 
-AUTH = {"Authorization": f"Bearer {main.settings.aria_bridge_api_key}"}
+TEST_AESS_KEY = "test-aess-bridge-key"
+main.settings.aess_bridge_api_key = TEST_AESS_KEY
+main.settings.aess_caller_id = "aess-spatial-awareness"
+
+AUTH = {"Authorization": f"Bearer {TEST_AESS_KEY}"}
 BASE_REQUEST = {
     "contract_version": "1.0",
     "operation": "recall_prior_intelligence",
@@ -29,6 +32,38 @@ def test_cr028_requires_authentication():
     client = TestClient(main.app)
     response = client.post("/v1/recall-prior-intelligence", json=BASE_REQUEST)
     assert response.status_code == 401
+
+
+def test_cr028_rejects_non_aess_credential():
+    client = TestClient(main.app)
+    response = client.post(
+        "/v1/recall-prior-intelligence",
+        headers={"Authorization": "Bearer wrong-key"},
+        json=BASE_REQUEST,
+    )
+    assert response.status_code == 403
+
+
+def test_cr028_rejects_claimed_caller_mismatch():
+    client = TestClient(main.app)
+    payload = {**BASE_REQUEST, "caller": "not-aess"}
+    response = client.post("/v1/recall-prior-intelligence", headers=AUTH, json=payload)
+    assert response.status_code == 403
+    assert "caller does not match authenticated principal" in response.json()["detail"]
+
+
+def test_cr028_derives_caller_from_credential(monkeypatch):
+    async def fake_recall(*, query, domain, limit):
+        return {"data": {"knowledge_records": [], "doctrine_records": []}}
+
+    monkeypatch.setattr(main.aria_client, "recall", fake_recall)
+    payload = {**BASE_REQUEST}
+    payload.pop("caller")
+    response = TestClient(main.app).post(
+        "/v1/recall-prior-intelligence", headers=AUTH, json=payload
+    )
+    assert response.status_code == 200
+    assert response.json()["telemetry"]["caller"] == "aess-spatial-awareness"
 
 
 def test_cr028_rejects_unknown_fields():
@@ -72,6 +107,7 @@ def test_cr028_success_normalizes_aria_records_and_never_writes(monkeypatch):
     assert body["provenance"] == [{"record_id": "rec-knowledge-1", "source_ids": ["rec-source-1"]}]
     assert body["historical_analogs"] == []
     assert body["relationships"] == []
+    assert body["telemetry"]["caller"] == "aess-spatial-awareness"
     assert body["telemetry"]["kernel_writes"] == 0
     assert calls == [("MDB earnings reaction market configuration MongoDB", "market", 10)]
 
@@ -114,12 +150,12 @@ def test_cr028_classifies_timeout(monkeypatch):
         raise httpx.ReadTimeout("timed out")
 
     monkeypatch.setattr(main.aria_client, "recall", fake_recall)
-    body = TestClient(main.app).post(
+    response = TestClient(main.app).post(
         "/v1/recall-prior_intelligence", headers=AUTH, json=BASE_REQUEST
     )
 
     # Route typo must not be accepted as the governed operation.
-    assert body.status_code == 404
+    assert response.status_code == 404
 
     body = TestClient(main.app).post(
         "/v1/recall-prior-intelligence", headers=AUTH, json=BASE_REQUEST
@@ -129,7 +165,7 @@ def test_cr028_classifies_timeout(monkeypatch):
     assert body["telemetry"]["kernel_writes"] == 0
 
 
-def test_service_never_exposes_mutating_client_methods(monkeypatch):
+def test_service_never_exposes_mutating_client_methods():
     class RecallOnlyClient:
         async def recall(self, *, query, domain, limit):
             return {"data": {"knowledge_records": []}}
