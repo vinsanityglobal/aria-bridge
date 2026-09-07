@@ -1,6 +1,7 @@
 import logging
 import os
 import json
+import hmac
 from datetime import datetime, timezone
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
@@ -71,7 +72,10 @@ async def aria_run_gravity(thesis: str, publication: str = "TheSciFiScene", cont
     result = await aria_client.run_gravity(thesis, publication, context_payload)
     return json.dumps(result, indent=2)
 
+
 class APIKeyMiddleware(BaseHTTPMiddleware):
+    """Authenticate Bridge callers and bind CR-028 recall to the AESS principal."""
+
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         norm_path = path.rstrip("/")
@@ -79,28 +83,69 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if norm_path in ["", "/health", "/docs", "/openapi.json"]:
             return await call_next(request)
 
+        if norm_path == "/v1/recall-prior-intelligence":
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing or invalid Bearer token"})
+
+            if not settings.aess_bridge_api_key:
+                logger.error("CR-028 AESS credential is not configured")
+                return JSONResponse(status_code=503, content={"detail": "AESS Bridge authorization is not configured"})
+
+            token = auth_header.split(" ", 1)[1]
+            if not hmac.compare_digest(token, settings.aess_bridge_api_key):
+                return JSONResponse(status_code=403, content={"detail": "Forbidden: credential is not authorized for AESS recall"})
+
+            request.state.authenticated_caller = settings.aess_caller_id
+            request.state.authorized_operation = "recall_prior_intelligence"
+            return await call_next(request)
+
         if norm_path.startswith("/mcp") or norm_path.startswith("/v1"):
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing or invalid Bearer token"})
-            token = auth_header.split(" ")[1]
-            if token != settings.aria_bridge_api_key:
+            if not settings.aria_bridge_api_key:
+                logger.error("General Bridge credential is not configured")
+                return JSONResponse(status_code=503, content={"detail": "Bridge authentication is not configured"})
+            token = auth_header.split(" ", 1)[1]
+            if not hmac.compare_digest(token, settings.aria_bridge_api_key):
                 return JSONResponse(status_code=403, content={"detail": "Forbidden: Invalid API key"})
             return await call_next(request)
 
         return await call_next(request)
 
+
 async def health(request: Request):
     return JSONResponse({"status": "ok", "service": "aria-bridge", "version": settings.app_version})
 
+
 async def root(request: Request):
     return JSONResponse({"message": "ARIA Bridge operational", "version": settings.app_version, "transport": "streamable_http", "endpoint": "/mcp"})
+
 
 async def recall_prior_intelligence_http(request: Request):
     """Governed, read-only CR-028 AESS recall operation."""
     body = {}
     try:
         body = await request.json()
+
+        authenticated_caller = getattr(request.state, "authenticated_caller", None)
+        authorized_operation = getattr(request.state, "authorized_operation", None)
+        if not authenticated_caller or authorized_operation != "recall_prior_intelligence":
+            return JSONResponse(status_code=403, content={"detail": "Forbidden: AESS recall authorization missing"})
+
+        supplied_caller = body.get("caller") if isinstance(body, dict) else None
+        if supplied_caller is not None and supplied_caller != authenticated_caller:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Forbidden: caller does not match authenticated principal"},
+            )
+
+        # Caller identity is derived from the authenticated credential. The body is
+        # normalized before contract validation so caller metadata cannot elevate identity.
+        if isinstance(body, dict):
+            body["caller"] = authenticated_caller
+
         recall_request = CR028RecallRequest.model_validate(body)
     except Exception as exc:
         return JSONResponse(
@@ -118,7 +163,7 @@ async def recall_prior_intelligence_http(request: Request):
                 "errors": [{"classification": "malformed_request", "message": str(exc)}],
                 "telemetry": {
                     "request_id": body.get("request_id", "") if isinstance(body, dict) else "",
-                    "caller": body.get("caller", "") if isinstance(body, dict) else "",
+                    "caller": getattr(request.state, "authenticated_caller", ""),
                     "requested_operation": "recall_prior_intelligence",
                     "status": "malformed_request",
                     "latency_ms": 0,
@@ -156,6 +201,7 @@ async def invoke_capability_http(request: Request):
         logger.exception("Generic capability invocation failed")
         return JSONResponse(status_code=502, content={"detail": str(exc)})
 
+
 streamable_app = mcp.streamable_http_app(streamable_http_path="/")
 
 app = Starlette(
@@ -172,6 +218,7 @@ app = Starlette(
     ]
 )
 app.router.redirect_slashes = False
+
 
 if __name__ == "__main__":
     import uvicorn
