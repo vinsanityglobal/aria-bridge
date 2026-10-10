@@ -40,6 +40,8 @@ class CR028RecallService:
             "intent": "recall_prior_intelligence",
             "caller": request.caller,
             "request_id": request.request_id,
+            "aess_execution_id": request.aess_execution_id,
+            "application_identity": request.application_identity or request.caller,
             "as_of": request.as_of,
             "ticker": request.ticker,
             "entities": request.entities,
@@ -51,6 +53,7 @@ class CR028RecallService:
                 query=query,
                 domain=request.spatial_awareness.get("domain"),
                 limit=request.limit,
+                correlation={key: value for key, value in context.items() if value is not None},
             )
             execution_id = raw.get("execution_id")
             data = raw.get("data", raw)
@@ -105,12 +108,15 @@ class CR028RecallService:
         )
         return CR028RecallResponse(
             request_id=request.request_id,
+            aess_execution_id=request.aess_execution_id,
+            application_identity=request.application_identity or request.caller,
+            kernel_execution_id=execution_id,
+            retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
             status=status,
             relevant_prior_intelligence=records,
             historical_analogs=[],
             relationships=[],
             provenance=provenance,
-            retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
             warnings=warnings,
             errors=errors,
             telemetry=telemetry,

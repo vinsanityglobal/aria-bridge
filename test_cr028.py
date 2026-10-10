@@ -53,7 +53,7 @@ def test_cr028_rejects_claimed_caller_mismatch():
 
 
 def test_cr028_derives_caller_from_credential(monkeypatch):
-    async def fake_recall(*, query, domain, limit):
+    async def fake_recall(*, query, domain, limit, correlation=None):
         return {"data": {"knowledge_records": [], "doctrine_records": []}}
 
     monkeypatch.setattr(main.aria_client, "recall", fake_recall)
@@ -77,7 +77,7 @@ def test_cr028_rejects_unknown_fields():
 def test_cr028_success_normalizes_aria_records_and_never_writes(monkeypatch):
     calls = []
 
-    async def fake_recall(*, query, domain, limit):
+    async def fake_recall(*, query, domain, limit, correlation=None):
         calls.append((query, domain, limit))
         return {
             "execution_id": "exec-1",
@@ -113,7 +113,7 @@ def test_cr028_success_normalizes_aria_records_and_never_writes(monkeypatch):
 
 
 def test_cr028_empty_recall_is_not_a_failure(monkeypatch):
-    async def fake_recall(*, query, domain, limit):
+    async def fake_recall(*, query, domain, limit, correlation=None):
         return {"data": {"knowledge_records": [], "doctrine_records": []}}
 
     monkeypatch.setattr(main.aria_client, "recall", fake_recall)
@@ -132,7 +132,7 @@ def test_cr028_classifies_aria_http_failure(monkeypatch):
     request = httpx.Request("POST", "https://aria.test/recall")
     response = httpx.Response(503, request=request)
 
-    async def fake_recall(*, query, domain, limit):
+    async def fake_recall(*, query, domain, limit, correlation=None):
         raise httpx.HTTPStatusError("upstream", request=request, response=response)
 
     monkeypatch.setattr(main.aria_client, "recall", fake_recall)
@@ -146,7 +146,7 @@ def test_cr028_classifies_aria_http_failure(monkeypatch):
 
 
 def test_cr028_classifies_timeout(monkeypatch):
-    async def fake_recall(*, query, domain, limit):
+    async def fake_recall(*, query, domain, limit, correlation=None):
         raise httpx.ReadTimeout("timed out")
 
     monkeypatch.setattr(main.aria_client, "recall", fake_recall)
@@ -167,7 +167,7 @@ def test_cr028_classifies_timeout(monkeypatch):
 
 def test_service_never_exposes_mutating_client_methods():
     class RecallOnlyClient:
-        async def recall(self, *, query, domain, limit):
+        async def recall(self, *, query, domain, limit, correlation=None):
             return {"data": {"knowledge_records": []}}
 
         def __getattr__(self, name):

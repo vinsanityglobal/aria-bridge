@@ -145,6 +145,7 @@ async def recall_prior_intelligence_http(request: Request):
         # normalized before contract validation so caller metadata cannot elevate identity.
         if isinstance(body, dict):
             body["caller"] = authenticated_caller
+            body["application_identity"] = authenticated_caller
 
         recall_request = CR028RecallRequest.model_validate(body)
     except Exception as exc:

@@ -61,6 +61,8 @@ class CR028RecallRequest(BaseModel):
     contract_version: Literal["1.0"] = "1.0"
     operation: Literal["recall_prior_intelligence"] = "recall_prior_intelligence"
     request_id: str = Field(min_length=1, max_length=200)
+    aess_execution_id: str | None = Field(default=None, max_length=200)
+    application_identity: str | None = Field(default=None, max_length=200)
     caller: str = Field(min_length=1, max_length=200)
     as_of: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     ticker: str | None = Field(default=None, max_length=32)
@@ -98,6 +100,10 @@ class CR028Telemetry(BaseModel):
 class CR028RecallResponse(BaseModel):
     contract_version: Literal["1.0"] = "1.0"
     request_id: str
+    aess_execution_id: str | None = None
+    application_identity: str | None = None
+    kernel_execution_id: str | None = None
+    retrieval_timestamp: str | None = None
     status: Literal[
         "recalled",
         "no_relevant_prior_intelligence",
